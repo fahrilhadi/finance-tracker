@@ -29,7 +29,19 @@ class CategoryController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'type' => 'required|in:income,expense',
+            'name' => 'unique:categories|required|string|max:255',
+        ], [
+            'type.required' => 'Tipe kategori harus diisi.',
+            'type.in' => 'Tipe kategori tidak valid.',
+            'name.required' => 'Nama kategori harus diisi.',
+            'name.unique' => 'Nama kategori sudah ada.',
+        ]);
+
+        Category::create($request->only('type', 'name'));
+
+        return redirect()->route('categories.index')->with('success', 'Kategori berhasil ditambahkan.');
     }
 
     /**
