@@ -83,8 +83,14 @@ class CategoryController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Category $category)
     {
-        //
+        if ($category->transactions()->count() > 0) {
+            return redirect()->route('categories.index')->with('error', 'Tidak bisa menghapus kategori yang memiliki transaksi.');
+        }
+
+        $category->delete();
+
+        return redirect()->route('categories.index')->with('success', 'Kategori berhasil dihapus.');
     }
 }
