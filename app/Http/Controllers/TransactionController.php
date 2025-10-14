@@ -11,7 +11,15 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        //
+        $transactions = Transaction::with('category', 'items')
+            ->where('user_id', Auth::user()->id)
+            ->latest()->paginate(12);
+
+        $totalMonthly = Transaction::whereMonth('date', now()->month)
+            ->whereYear('date', now()->year)
+            ->sum('amount');
+
+        return view('transactions.index', compact('transactions', 'totalMonthly'));
     }
 
     /**
