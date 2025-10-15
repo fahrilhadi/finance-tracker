@@ -27,7 +27,11 @@ class TransactionController extends Controller
      */
     public function create()
     {
-        //
+        $categories = Category::select(['id', 'name', 'type'])
+            ->orderBy('name')->get();
+        $defaultType = 'expense';
+
+        return view('transactions.create', compact('categories'));
     }
 
     /**
