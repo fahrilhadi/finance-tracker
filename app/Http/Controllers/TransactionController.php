@@ -132,4 +132,61 @@ class TransactionController extends Controller
     {
         //
     }
+
+    /**
+     * Step 1 (via struk): upload → ekstraksi Gemini → tampilkan review
+     */
+    public function extractFromReceipt(Request $request, GeminiReceiptService $ai)
+    {
+        $validated = $request->validate([
+            'type'        => 'required|in:income,expense',
+            'category_id' => 'required|exists:categories,id',
+            'title'       => 'required|string|max:100',
+            'receipt'     => 'required|image|max:5120', // 5MB
+        ]);
+
+        $catType = Category::where('id', $validated['category_id'])->value('type');
+        if ($catType !== $validated['type']) {
+            return back()->withInput()->withErrors(['category_id' => 'Kategori tidak sesuai dengan tipe transaksi.']);
+        }
+
+        $path = $request->file('receipt')->store('receipts', 'public');
+        $absolute = Storage::disk('public')->path($path);
+
+        try {
+            $result = $ai->extract($absolute);
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($path);
+
+            Log::warning('Gemini extract failed', ['msg' => $e->getMessage()]);
+            return back()
+                ->withInput() // kembalikan semua input (file perlu pilih ulang)
+                ->with('error', 'Proses AI timeout/ gagal. Silakan coba lagi beberapa saat atau isi manual.')
+                ->with('ai_tab', 'struk'); // supaya tab "Struk" tetap terbuka
+        }
+
+        // Siapkan data untuk halaman review
+        $prefill = [
+            'type'        => $validated['type'],
+            'category_id' => $validated['category_id'],
+            'date'        => $result['datetime'] ? Carbon::parse($result['datetime'])->toDateString() : now()->toDateString(),
+            'amount'      => $result['total'] ?? null,
+            'title'       => $validated['title'],
+            'note'        => $result['merchant'] ? "Belanja: {$result['merchant']}" : null,
+            'receipt_path' => $path,
+            'items'       => array_map(function ($it) {
+                $price = $it['unit_price'] ?? ($it['subtotal'] ?? 0);
+                return [
+                    'name'  => $it['name'],
+                    'qty'   => $it['qty'],
+                    'price' => $price,
+                    'subtotal' => $it['subtotal'] ?? ($price * $it['qty']),
+                ];
+            }, $result['items'] ?? []),
+        ];
+
+        $categories = Category::orderBy('name')->get();
+
+        return view('transactions.review', compact('prefill', 'categories'));
+    }
 }
