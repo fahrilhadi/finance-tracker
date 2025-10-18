@@ -189,4 +189,58 @@ class TransactionController extends Controller
 
         return view('transactions.review', compact('prefill', 'categories'));
     }
+
+    /**
+     * Step 2 (via struk): user konfirmasi & simpan final
+     */
+    public function confirmExtracted(Request $request)
+    {
+        $validated = $request->validate([
+            'type'          => 'required|in:income,expense',
+            'category_id'   => 'required|exists:categories,id',
+            'date'          => 'required|date',
+            'amount'        => 'required|numeric',
+            'title'         => 'required|string|max:100',
+            'note'          => 'nullable|string',
+            'receipt_path'  => 'nullable|string',
+            'items.*.name'  => 'nullable|string',
+            'items.*.qty'   => 'nullable|numeric',
+            'items.*.price' => 'nullable|numeric',
+        ]);
+        $catType = Category::where('id', $validated['category_id'])->value('type');
+        if ($catType !== $validated['type']) {
+            return back()->withInput()->withErrors(['category_id' => 'Kategori tidak sesuai dengan tipe transaksi.']);
+        }
+
+        DB::transaction(function () use ($validated) {
+            $tx = Transaction::create([
+                'user_id'     => Auth::user()->id,
+                'category_id' => $validated['category_id'],
+                'type'        => $validated['type'],
+                'date'        => $validated['date'],
+                'amount'      => $validated['amount'],
+                'title'       => $validated['title'],
+                'note' => $validated['note'] ?? null,
+                'image' => $validated['receipt_path'] ?? null,
+                'gemini_data' => $validated,
+            ]);
+
+            if (!empty($validated['items'])) {
+                foreach ($validated['items'] as $it) {
+                    if (!empty($it['name'])) {
+                        $qty   = (float)($it['qty'] ?? 1);
+                        $price = (float)($it['price'] ?? 0);
+                        Item::create([
+                            'transaction_id' => $tx->id,
+                            'name'           => $it['name'],
+                            'quantity'       => $qty,
+                            'price'          => $price,
+                        ]);
+                    }
+                }
+            }
+        });
+
+        return redirect()->route('transactions.index')->with('success', 'Transaksi dari struk tersimpan.');
+    }
 }
