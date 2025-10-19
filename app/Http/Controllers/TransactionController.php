@@ -104,9 +104,17 @@ class TransactionController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Transaction $transaction)
     {
-        //
+        $transaction->load('category', 'items');
+
+        if ($transaction->user_id !== Auth::user()->id) {
+            return redirect()->route('transactions.index')->with('error', 'Anda tidak memiliki akses ke transaksi ini.');
+        }
+
+        return view('transactions.show', [
+            'tx' => $transaction,
+        ]);
     }
 
     /**
