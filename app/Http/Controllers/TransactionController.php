@@ -127,30 +127,6 @@ class TransactionController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
-
-    /**
      * Step 1 (via struk): upload → ekstraksi Gemini → tampilkan review
      */
     public function extractFromReceipt(Request $request, GeminiReceiptService $ai)
